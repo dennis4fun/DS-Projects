@@ -14,6 +14,9 @@ input_filepath = os.path.join(input_dir, input_csv_file)
 output_processed_csv_file = 'processed_data.csv'
 output_processed_filepath = os.path.join(input_dir, output_processed_csv_file)
 
+# Define the directory for saving plots
+plots_dir = os.path.join(input_dir, 'plots')
+
 
 # --- Load Data ---
 print(f"Attempting to load data from '{input_filepath}'...")
@@ -137,6 +140,10 @@ for ticker in df['Ticker'].unique():
 
 print("\n--- Data Visualization (EDA) ---")
 
+# Ensure the plots directory exists
+os.makedirs(plots_dir, exist_ok=True)
+print(f"Ensured plots directory '{plots_dir}' exists for saving visualizations.")
+
 # 1. Stock Price Timeline (Adj Close over time for all tickers)
 plt.figure(figsize=(15, 7))
 sns.lineplot(data=df, x='Date', y='Adj Close', hue='Ticker', marker='o', markersize=4, linewidth=1)
@@ -146,8 +153,9 @@ plt.ylabel('Adjusted Closing Price (USD)')
 plt.legend(title='Ticker', bbox_to_anchor=(1.05, 1), loc='upper left')
 plt.grid(True, linestyle='--', alpha=0.7)
 plt.tight_layout()
-plt.show()
-print("Generated: Stock Price Timeline (Adjusted Closing Price)")
+plt.savefig(os.path.join(plots_dir, 'stock_price_timeline.png')) # Save plot instead of showing
+plt.close() # Close the plot to free memory
+print(f"Generated and saved: Stock Price Timeline to {os.path.join(plots_dir, 'stock_price_timeline.png')}")
 
 # 2. Daily Trading Volume Over Time
 plt.figure(figsize=(15, 7))
@@ -158,8 +166,9 @@ plt.ylabel('Volume')
 plt.legend(title='Ticker', bbox_to_anchor=(1.05, 1), loc='upper left')
 plt.grid(True, linestyle='--', alpha=0.7)
 plt.tight_layout()
-plt.show()
-print("Generated: Daily Trading Volume Timeline")
+plt.savefig(os.path.join(plots_dir, 'daily_trading_volume.png')) # Save plot instead of showing
+plt.close() # Close the plot to free memory
+print(f"Generated and saved: Daily Trading Volume Timeline to {os.path.join(plots_dir, 'daily_trading_volume.png')}")
 
 
 # 3. Distribution of Daily Returns
@@ -174,8 +183,10 @@ plt.ylabel('Frequency')
 plt.grid(True, linestyle='--', alpha=0.7)
 plt.legend(title='Ticker', bbox_to_anchor=(1.05, 1), loc='upper left') # Ensure legend visibility
 plt.tight_layout()
-plt.show()
-print("Generated: Distribution of Daily Returns")
+plt.savefig(os.path.join(plots_dir, 'daily_returns_distribution.png')) # Save plot instead of showing
+plt.close() # Close the plot to free memory
+print(f"Generated and saved: Distribution of Daily Returns to {os.path.join(plots_dir, 'daily_returns_distribution.png')}")
+
 
 # --- Note on Confusion Matrix ---
 print("\n--- Note on Confusion Matrix ---")
@@ -187,7 +198,7 @@ print("\n--- Data Prepped for ML Forecasting ---")
 print("The DataFrame 'df' is now cleaned and ready for feature engineering and ML model training.")
 
 # --- Save Cleaned and Processed Data ---
-os.makedirs(input_dir, exist_ok=True) # Ensure data directory exists
+os.makedirs(input_dir, exist_ok=True) # Ensure data directory exists (redundant but safe)
 df.to_csv(output_processed_filepath, index=False)
 print(f"\nCleaned and processed data saved successfully to '{output_processed_filepath}'")
 
