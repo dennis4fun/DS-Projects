@@ -14,8 +14,9 @@ input_filepath = os.path.join(input_dir, processed_csv_file)
 
 # Define the directory where models and plots are saved
 ml_artifacts_dir = 'ml_artifacts'
-output_future_forecast_plot = 'historical_and_future_forecast.png' # Plot for historical + future forecast
-output_future_only_plot = 'future_forecast_only.png' # NEW: Plot for future forecast only
+output_historical_future_forecast_plot = 'historical_and_future_forecast.png' # Plot for historical + future forecast
+output_future_only_plot = 'future_forecast_only.png' # Plot for future forecast only
+output_quarterly_changes_plot = 'quarterly_forecast_changes.png' # NEW: Plot for quarterly changes
 
 # --- Ensure Output Directory Exists ---
 os.makedirs(ml_artifacts_dir, exist_ok=True)
@@ -223,12 +224,12 @@ plt.xlim(combined_forecast_df['Date'].min(), combined_forecast_df['Date'].max())
 
 plt.grid(True, linestyle='--', alpha=0.7)
 plt.tight_layout(rect=[0, 0, 0.9, 1]) # Adjust layout to make space for legends
-plt.savefig(os.path.join(ml_artifacts_dir, output_future_forecast_plot))
+plt.savefig(os.path.join(ml_artifacts_dir, output_historical_future_forecast_plot))
 plt.close()
-print(f"Generated and saved: Historical and Future Stock Price Forecast Plot to {os.path.join(ml_artifacts_dir, output_future_forecast_plot)}")
+print(f"Generated and saved: Historical and Future Stock Price Forecast Plot to {os.path.join(ml_artifacts_dir, output_historical_future_forecast_plot)}")
 
 
-# --- Visualization 2: Future Forecast Only (NEW) ---
+# --- Visualization 2: Future Forecast Only ---
 print("\n--- Generating Future Forecast Only Plot ---")
 plt.figure(figsize=(15, 7)) # Adjust figure size
 
@@ -257,8 +258,8 @@ if not future_forecast_df.empty:
     plt.xlim(future_dates.min(), future_dates.max())
 
     # Dynamically set Y-axis limits to zoom into the forecast range
-    min_y_forecast = future_only_df['Predicted_Adj_Close'].min()
-    max_y_forecast = future_only_df['Predicted_Adj_Close'].max()
+    min_y_forecast = future_forecast_df['Predicted_Adj_Close'].min()
+    max_y_forecast = future_forecast_df['Predicted_Adj_Close'].max()
     y_buffer = (max_y_forecast - min_y_forecast) * 0.1 # 10% buffer
     plt.ylim(min_y_forecast - y_buffer, max_y_forecast + y_buffer)
 
@@ -305,6 +306,77 @@ if not future_forecast_df.empty:
 else:
     print("No future forecast data to plot in 'Future Forecast Only' graph.")
 
+
+# --- NEW Visualization 3: Quarterly Forecast Changes ---
+print("\n--- Generating Quarterly Forecast Changes Plot ---")
+quarterly_changes_list = []
+
+# Define the end dates for the remaining quarters of 2025
+# Current date is assumed to be mid-June 2025 based on previous context.
+# Q2 ends June 30, Q3 ends Sept 30, Q4 ends Dec 31
+q2_end_date = datetime.date(2025, 6, 30)
+q3_end_date = datetime.date(2025, 9, 30)
+q4_end_date = datetime.date(2025, 12, 31)
+
+# Find the last actual historical price for each ticker as the baseline for Q2 change
+last_actual_prices = df_historical.groupby('Ticker')['Adj Close'].last().reset_index()
+last_actual_prices.rename(columns={'Adj Close': 'Start_Price'}, inplace=True)
+
+for ticker in future_forecast_df['Ticker'].unique():
+    ticker_forecast_data = future_forecast_df[future_forecast_df['Ticker'] == ticker].sort_values(by='Date')
+    
+    # Get prices at quarter end dates (or closest available business day)
+    # Use ffill to get the last known forecast up to that date, then bfill for next known
+    q2_price = ticker_forecast_data.loc[ticker_forecast_data['Date'] <= pd.Timestamp(q2_end_date)]['Predicted_Adj_Close'].iloc[-1] if not ticker_forecast_data.loc[ticker_forecast_data['Date'] <= pd.Timestamp(q2_end_date)].empty else np.nan
+    q3_price = ticker_forecast_data.loc[ticker_forecast_data['Date'] <= pd.Timestamp(q3_end_date)]['Predicted_Adj_Close'].iloc[-1] if not ticker_forecast_data.loc[ticker_forecast_data['Date'] <= pd.Timestamp(q3_end_date)].empty else np.nan
+    q4_price = ticker_forecast_data.loc[ticker_forecast_data['Date'] <= pd.Timestamp(q4_end_date)]['Predicted_Adj_Close'].iloc[-1] if not ticker_forecast_data.loc[ticker_forecast_data['Date'] <= pd.Timestamp(q4_end_date)].empty else np.nan
+
+    # Get the last historical price for this ticker
+    start_q2_price = last_actual_prices[last_actual_prices['Ticker'] == ticker]['Start_Price'].iloc[0] if not last_actual_prices[last_actual_prices['Ticker'] == ticker].empty else np.nan
+
+    # Calculate changes
+    if not np.isnan(start_q2_price) and not np.isnan(q2_price):
+        q2_change = ((q2_price - start_q2_price) / start_q2_price) * 100
+        quarterly_changes_list.append({'Ticker': ticker, 'Quarter': 'Q2 2025', 'Change (%)': q2_change})
+    
+    if not np.isnan(q2_price) and not np.isnan(q3_price):
+        q3_change = ((q3_price - q2_price) / q2_price) * 100
+        quarterly_changes_list.append({'Ticker': ticker, 'Quarter': 'Q3 2025', 'Change (%)': q3_change})
+
+    if not np.isnan(q3_price) and not np.isnan(q4_price):
+        q4_change = ((q4_price - q3_price) / q3_price) * 100
+        quarterly_changes_list.append({'Ticker': ticker, 'Quarter': 'Q4 2025', 'Change (%)': q4_change})
+
+quarterly_changes_df = pd.DataFrame(quarterly_changes_list)
+
+if not quarterly_changes_df.empty:
+    plt.figure(figsize=(14, 8)) # Adjusted for horizontal bars
+    
+    # Sort for better visualization
+    quarterly_changes_df['Abs_Change'] = quarterly_changes_df['Change (%)'].abs()
+    quarterly_changes_df.sort_values(by=['Quarter', 'Abs_Change'], ascending=[True, False], inplace=True)
+
+    # Define colors for positive/negative change
+    colors = ['green' if x >= 0 else 'red' for x in quarterly_changes_df['Change (%)']]
+    
+    sns.barplot(data=quarterly_changes_df, x='Change (%)', y='Ticker', hue='Quarter', palette='viridis', dodge=True)
+    
+    plt.title('Projected Quarterly Stock Price Changes (Q2-Q4 2025)', fontsize=16)
+    plt.xlabel('Projected Change (%)', fontsize=12)
+    plt.ylabel('Ticker', fontsize=12)
+    plt.axvline(0, color='gray', linestyle='--', linewidth=0.8) # Line at 0% change
+    
+    # Add percentage labels to bars
+    for container in plt.gca().containers:
+        plt.bar_label(container, fmt='%.2f%%', label_type='edge', padding=3)
+
+    plt.legend(title='Quarter', bbox_to_anchor=(1.02, 1), loc='upper left')
+    plt.tight_layout(rect=[0, 0, 0.9, 1])
+    plt.savefig(os.path.join(ml_artifacts_dir, output_quarterly_changes_plot))
+    plt.close()
+    print(f"Generated and saved: Quarterly Forecast Changes Plot to {os.path.join(ml_artifacts_dir, output_quarterly_changes_plot)}")
+else:
+    print("No quarterly forecast data to plot in 'Quarterly Forecast Changes' graph.")
 
 print("\nFuture Forecasting complete.")
 print("ML Forecasting script execution finished.")

@@ -75,3 +75,55 @@ This script takes the raw stock data, performs essential cleaning and transforma
 ```bash
 pipenv run python CI-DS-Forecasting/get_stock_data.py
 ```
+
+## 🚀 Running the Project Scripts:
+
+Follow these steps sequentially to run the full forecasting pipeline:
+
+### 1. Fetch Raw Stock Data:
+
+This script scrapes historical stock data for predefined tickers (e.g., S&P 500 components) and saves it as `raw_stock_data.cs`v in the `data/` directory.
+
+```bash
+pipenv run python get_stock_data.py
+```
+
+### 2. Clean & Perform EDA:
+
+This script loads the raw stock data, performs necessary cleaning and preprocessing steps, conducts Exploratory Data Analysis (EDA), and saves the processed data as `processed_data.csv` in the `data/ directory`. It also generates several EDA plots (e.g., daily returns distribution) in `data/plots/.`
+
+```bash
+pipenv run python data_cleaning_EDA.py
+```
+
+### 3. Train Forecasting Models:
+
+This script utilizes the `processed_data.csv` to train individual Prophet time-series models for each stock ticker. The trained models are then saved as `.joblib` files in the `ml_artifacts/` directory.
+
+```bash
+pipenv run python model_training.py
+```
+
+### 4. Generate Stock Price Forecasts & Reports:
+
+This script loads the trained Prophet models, generates future stock price forecasts until the end of 2025, and produces three types of visualizations in the `ml_artifacts/` directory:
+
+- `historical_and_future_forecast.png:` Shows historical prices along with future forecasts and confidence intervals.
+
+- `future_forecast_only.png:` A zoomed-in view of only the future forecasts and their confidence intervals.
+
+- `quarterly_forecast_changes.png:` A horizontal bar graph comparing projected quarterly percentage changes for each stock.
+
+```bash
+pipenv run python ml_forecasting.py
+```
+
+### Future Enhancements:
+
+Integration with a CI/CD pipeline (e.g., GitHub Actions) for automated execution.
+
+Advanced model evaluation metrics and backtesting.
+
+Incorporating external regressors (e.g., news sentiment, macroeconomic indicators) into the Prophet model.
+
+Generating a comprehensive financial report using an LLM.
