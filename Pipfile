@@ -12,6 +12,7 @@ weaviate-client = "*"
 sentence-transformers = "*"
 matplotlib = "*"
 seaborn = "*"
+prophet = "*"
 
 [dev-packages]
 
