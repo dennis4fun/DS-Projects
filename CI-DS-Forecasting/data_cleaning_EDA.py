@@ -1,5 +1,7 @@
 import pandas as pd
 import os
+import matplotlib.pyplot as plt # Added for plotting
+import seaborn as sns # Added for enhanced plotting
 
 # --- Configuration ---
 # Define the input file and directory.
@@ -7,6 +9,11 @@ import os
 input_dir = 'data'
 input_csv_file = 'raw_stock_data.csv'
 input_filepath = os.path.join(input_dir, input_csv_file)
+
+# Define the output file for the processed data
+output_processed_csv_file = 'processed_data.csv'
+output_processed_filepath = os.path.join(input_dir, output_processed_csv_file)
+
 
 # --- Load Data ---
 print(f"Attempting to load data from '{input_filepath}'...")
@@ -128,8 +135,60 @@ for ticker in df['Ticker'].unique():
             print(f"  {ticker}: No missing business days detected.")
 
 
+print("\n--- Data Visualization (EDA) ---")
+
+# 1. Stock Price Timeline (Adj Close over time for all tickers)
+plt.figure(figsize=(15, 7))
+sns.lineplot(data=df, x='Date', y='Adj Close', hue='Ticker', marker='o', markersize=4, linewidth=1)
+plt.title('Adjusted Closing Price Over Time for Selected S&P 500 Stocks')
+plt.xlabel('Date')
+plt.ylabel('Adjusted Closing Price (USD)')
+plt.legend(title='Ticker', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+print("Generated: Stock Price Timeline (Adjusted Closing Price)")
+
+# 2. Daily Trading Volume Over Time
+plt.figure(figsize=(15, 7))
+sns.lineplot(data=df, x='Date', y='Volume', hue='Ticker', linewidth=1)
+plt.title('Daily Trading Volume Over Time for Selected S&P 500 Stocks')
+plt.xlabel('Date')
+plt.ylabel('Volume')
+plt.legend(title='Ticker', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.show()
+print("Generated: Daily Trading Volume Timeline")
+
+
+# 3. Distribution of Daily Returns
+# Calculate daily returns for each stock
+df['Daily Return'] = df.groupby('Ticker')['Adj Close'].pct_change()
+
+plt.figure(figsize=(15, 7))
+sns.histplot(data=df, x='Daily Return', hue='Ticker', kde=True, bins=50, palette='viridis', alpha=0.6)
+plt.title('Distribution of Daily Returns for Selected S&P 500 Stocks')
+plt.xlabel('Daily Return')
+plt.ylabel('Frequency')
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.legend(title='Ticker', bbox_to_anchor=(1.05, 1), loc='upper left') # Ensure legend visibility
+plt.tight_layout()
+plt.show()
+print("Generated: Distribution of Daily Returns")
+
+# --- Note on Confusion Matrix ---
+print("\n--- Note on Confusion Matrix ---")
+print("A Confusion Matrix is typically used for evaluating classification models, where you predict discrete categories (e.g., 'stock goes up' or 'stock goes down').")
+print("For stock price forecasting (predicting the exact future price), which is usually a regression problem, a Confusion Matrix is not directly applicable.")
+print("If you later transform your forecasting problem into a classification problem (e.g., predicting daily price movement direction), then a Confusion Matrix would be a relevant visualization.")
+
 print("\n--- Data Prepped for ML Forecasting ---")
 print("The DataFrame 'df' is now cleaned and ready for feature engineering and ML model training.")
 
-# You can now proceed to feature engineering or save this cleaned DataFrame
-# df.to_csv(os.path.join(output_dir, 'cleaned_stock_data.csv'), index=False)
+# --- Save Cleaned and Processed Data ---
+os.makedirs(input_dir, exist_ok=True) # Ensure data directory exists
+df.to_csv(output_processed_filepath, index=False)
+print(f"\nCleaned and processed data saved successfully to '{output_processed_filepath}'")
+
+print("\nEDA and Data Cleaning script execution finished.")

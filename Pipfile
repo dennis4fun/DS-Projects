@@ -10,6 +10,8 @@ yfinance = "*"
 streamlit = "*"
 weaviate-client = "*"
 sentence-transformers = "*"
+matplotlib = "*"
+seaborn = "*"
 
 [dev-packages]
 
