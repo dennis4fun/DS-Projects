@@ -37,15 +37,15 @@ jobs:
 
       - name: Run Data Scraping Script
         # Execute pipenv run python from the repository root, providing the full path to the script.
-        # The script will likely create 'data/' inside 'CI-DS-Forecasting/'
+        # The script will create 'data/' in the repository root.
         run: pipenv run python CI-DS-Forecasting/get_stock_data.py
 
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
         with:
           name: raw-stock-data # Name of the artifact
-          # Path now explicitly points inside CI-DS-Forecasting/data/
-          path: CI-DS-Forecasting/data/raw_stock_data.csv # <--- CORRECTED PATH
+          # Path now explicitly points to the repository root's data directory
+          path: data/raw_stock_data.csv # <--- CORRECTED PATH
           retention-days: 1
 
   # Job 2: Data Processing and EDA
@@ -60,8 +60,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: raw-stock-data
-          # Download path now explicitly points inside CI-DS-Forecasting/data/
-          path: CI-DS-Forecasting/data/ # <--- CORRECTED PATH
+          # Download path now explicitly points to the repository root's data directory
+          path: data/ # <--- CORRECTED PATH
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -75,16 +75,14 @@ jobs:
         run: pipenv install --deploy
 
       - name: Run Data Cleaning and EDA Script
-        # The script will create 'data/processed_data.csv' and 'data/plots/' inside 'CI-DS-Forecasting/'
+        # The script will create 'data/processed_data.csv' in the repository root's data directory.
         run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py
 
       - name: Upload Processed Data and EDA Plots Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: |
-            CI-DS-Forecasting/data/processed_data.csv # <--- CORRECTED PATH
-            # Removed data/plots/ as requested
+          path: data/processed_data.csv # <--- REFRACTORED PATH, only uploading the CSV
           retention-days: 1
 
   # Job 3: Model Training
@@ -99,8 +97,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          # Download path now explicitly points inside CI-DS-Forecasting/data/
-          path: CI-DS-Forecasting/data/ # <--- CORRECTED PATH
+          # Download path now explicitly points to the repository root's data directory
+          path: data/ # <--- CORRECTED PATH
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -114,15 +112,15 @@ jobs:
         run: pipenv install --deploy
 
       - name: Run Model Training Script
-        # The script will create 'ml_artifacts/' inside 'CI-DS-Forecasting/'
+        # The script will create 'ml_artifacts/' in the repository root.
         run: pipenv run python CI-DS-Forecasting/model_training.py
 
       - name: Upload Trained Models Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: trained-models
-          # Path now explicitly points inside CI-DS-Forecasting/ml_artifacts/
-          path: CI-DS-Forecasting/ml_artifacts/prophet_model_*.joblib # <--- CORRECTED PATH
+          # Path now explicitly points to the repository root's ml_artifacts directory
+          path: ml_artifacts/prophet_model_*.joblib # <--- CORRECTED PATH
           retention-days: 1
 
   # Job 4: Forecasting and Reporting
@@ -137,15 +135,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          # Download path now explicitly points inside CI-DS-Forecasting/data/
-          path: CI-DS-Forecasting/data/ # <--- CORRECTED PATH
+          # Download path now explicitly points to the repository root's data directory
+          path: data/ # <--- CORRECTED PATH
 
       - name: Download Trained Models Artifacts
         uses: actions/download-artifact@v4
         with:
           name: trained-models
-          # Download path now explicitly points inside CI-DS-Forecasting/ml_artifacts/
-          path: CI-DS-Forecasting/ml_artifacts/ # <--- CORRECTED PATH
+          # Download path now explicitly points to the repository root's ml_artifacts directory
+          path: ml_artifacts/ # <--- CORRECTED PATH
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -159,13 +157,13 @@ jobs:
         run: pipenv install --deploy
 
       - name: Run Forecasting and Reporting Script
-        # The script will create plots inside 'CI-DS-Forecasting/ml_artifacts/'
+        # The script will create plots in the repository root's ml_artifacts directory.
         run: pipenv run python CI-DS-Forecasting/ml_forecasting.py
 
       - name: Upload Final Report Plots
         uses: actions/upload-artifact@v4
         with:
           name: final-plots-report # Name for the final artifact group
-          # Path now explicitly points inside CI-DS-Forecasting/ml_artifacts/
-          path: CI-DS-Forecasting/ml_artifacts/*.png # <--- CORRECTED PATH
+          # Path now explicitly points to the repository root's ml_artifacts directory
+          path: ml_artifacts/*.png # <--- CORRECTED PATH
           retention-days: 7
