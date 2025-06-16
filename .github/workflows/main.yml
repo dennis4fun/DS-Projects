@@ -1,4 +1,4 @@
-name: Stock Price Forecasting CI/CD
+name: Stock Price Forecasting CI/CDMore actions
 
 # Controls when the workflow will run
 on:
@@ -24,7 +24,7 @@ jobs:
       - name: Set up Python environment
         uses: actions/setup-python@v5 # Action to set up Python
         with:
-          python-version: '3.9' # Specify the Python version matching your Pipfile
+          python-version: '3.12' # Specify the Python version matching your Pipfile
 
       - name: Install pipenv
         run: pip install pipenv # Install pipenv globally in the runner
@@ -33,14 +33,15 @@ jobs:
         # Use --deploy for CI/CD to ensure exact lock file dependencies are installed
         # --system flag integrates the virtual environment with the system Python,
         # making it accessible directly by `pipenv run` without path issues in CI.
-        run: pipenv install --deploy --system
+        run: pipenv install --deploy #--system
 
       - name: Create data directory
         run: mkdir -p data # Ensure the data directory exists before the script runs
 
       - name: Run Data Scraping Script
-        run: pipenv run python get_stock_data.py # Execute
-        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT your data scraping script
+        run: pipenv run python get_stock_data.py
+
+        # Execute your data scraping script
 
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
@@ -152,20 +153,20 @@ jobs:
       - name: Set up Python environment
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.12'
 
       - name: Install pipenv
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy --system
+        run: pipenv install --deploy #--system
 
       - name: Run Forecasting and Reporting Script
         run: pipenv run python ml_forecasting.py
-        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
+
       - name: Upload Final Report Plots
         uses: actions/upload-artifact@v4
         with:
           name: final-plots-report # Name for the final artifact group
-          path: ml_artifacts/*.png # Upload all generated PNG plots
-          retention-days: 7 # Keep these final outputs longer Test
+          path: ml_artifacts/*.png # Upload all generated PNG plotsAdd commentMore actions
+          retention-days: 7 # Keep these final outputs longer
