@@ -32,7 +32,8 @@ jobs:
 
       - name: Install project dependencies
         # Run pipenv install from the repository root where Pipfile/Pipfile.lock reside
-        run: pipenv install --deploy --system
+        # REMOVED --system: This ensures pipenv creates/uses its isolated project virtual environment.
+        run: pipenv install --deploy
         # No 'working-directory' needed here as Pipfile is at repo root
 
       # No 'mkdir -p data' needed here, as your Python script handles directory creation at the root.
@@ -71,7 +72,7 @@ jobs:
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy --system
+        run: pipenv install --deploy # REMOVED --system
 
       # No 'mkdir -p data/plots' needed, as your Python script handles directory creation.
 
@@ -110,7 +111,7 @@ jobs:
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy --system
+        run: pipenv install --deploy # REMOVED --system
 
       # No 'mkdir -p ml_artifacts' needed, as your Python script handles directory creation.
 
@@ -153,7 +154,7 @@ jobs:
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy --system
+        run: pipenv install --deploy # REMOVED --system
 
       - name: Run Forecasting and Reporting Script
         run: pipenv run python CI-DS-Forecasting/ml_forecasting.py
