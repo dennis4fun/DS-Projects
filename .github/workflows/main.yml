@@ -164,4 +164,3 @@ jobs:
           name: final-plots-report # Name for the final artifact group
           path: ml_artifacts/*.png # Path from repo root
           retention-days: 7
-          #push test
