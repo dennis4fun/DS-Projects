@@ -35,10 +35,10 @@ jobs:
         run: pipenv install --deploy --system
         # No working-directory needed here as it's the repo root (where Pipfile is)
 
-      # --- Removed explicit 'mkdir -p data' as Python script handles it ---
-
       - name: Run Data Scraping Script
-        run: pipenv run python CI-DS-Forecasting/get_stock_data.py # Full path to script from repo root
+        # Execute pipenv run python from within the CI-DS-Forecasting directory
+        run: pipenv run python get_stock_data.py # <--- Script name only
+        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
 
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
@@ -72,10 +72,10 @@ jobs:
       - name: Install project dependencies
         run: pipenv install --deploy --system
 
-      # --- Removed explicit 'mkdir -p data/plots' as Python script handles it ---
-
       - name: Run Data Cleaning and EDA Script
-        run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py # Full path to script
+        # Execute pipenv run python from within the CI-DS-Forecasting directory
+        run: pipenv run python data_cleaning_EDA.py # <--- Script name only
+        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
 
       - name: Upload Processed Data and EDA Plots Artifacts
         uses: actions/upload-artifact@v4
@@ -111,10 +111,10 @@ jobs:
       - name: Install project dependencies
         run: pipenv install --deploy --system
 
-      # --- Removed explicit 'mkdir -p ml_artifacts' as Python script handles it ---
-
       - name: Run Model Training Script
-        run: pipenv run python CI-DS-Forecasting/model_training.py # Full path to script
+        # Execute pipenv run python from within the CI-DS-Forecasting directory
+        run: pipenv run python model_training.py # <--- Script name only
+        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
 
       - name: Upload Trained Models Artifacts
         uses: actions/upload-artifact@v4
@@ -155,7 +155,9 @@ jobs:
         run: pipenv install --deploy --system
 
       - name: Run Forecasting and Reporting Script
-        run: pipenv run python CI-DS-Forecasting/ml_forecasting.py # Full path to script
+        # Execute pipenv run python from within the CI-DS-Forecasting directory
+        run: pipenv run python ml_forecasting.py # <--- Script name only
+        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
 
       - name: Upload Final Report Plots
         uses: actions/upload-artifact@v4
