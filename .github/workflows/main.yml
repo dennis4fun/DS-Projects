@@ -39,7 +39,8 @@ jobs:
         run: mkdir -p data # Ensure the data directory exists before the script runs
 
       - name: Run Data Scraping Script
-        run: pipenv run python get_stock_data.py # Execute your data scraping script
+        run: pipenv run python get_stock_data.py # Execute
+        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT your data scraping script
 
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
@@ -161,7 +162,7 @@ jobs:
 
       - name: Run Forecasting and Reporting Script
         run: pipenv run python ml_forecasting.py
-
+        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
       - name: Upload Final Report Plots
         uses: actions/upload-artifact@v4
         with:
