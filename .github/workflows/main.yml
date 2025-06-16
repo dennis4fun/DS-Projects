@@ -20,12 +20,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4 # Action to check out your repository code
-        # No 'path' here; repository root is the default working directory
+        # Repository root is the default working directory
 
       - name: Set up Python environment
         uses: actions/setup-python@v5 # Action to set up Python
         with:
-          python-version: '3.12' # Your confirmed Python version
+          python-version: '3.12' # Your confirmed Python version (3.12.1 is compatible with 3.12)
 
       - name: Install pipenv
         run: pip install pipenv # Install pipenv globally in the runner
@@ -33,20 +33,19 @@ jobs:
       - name: Install project dependencies
         # Run pipenv install from the repository root where Pipfile/Pipfile.lock reside
         run: pipenv install --deploy --system
-        # No working-directory needed here as it's the repo root (where Pipfile is)
+        # No 'working-directory' needed here as Pipfile is at repo root
 
-      - name: Create data directory for scraping output
-        run: mkdir -p CI-DS-Forecasting/data # Ensure the data directory exists relative to script's CWD
-
+      # No 'mkdir -p data' needed here, as your Python script handles directory creation at the root.
       - name: Run Data Scraping Script
-        # Execute pipenv run python from within the CI-DS-Forecasting directory
-        run: pipenv run python get_stock_data.py # <--- Script name only
-        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
+        # Execute pipenv run python from the repository root, providing the full path to the script.
+        run: pipenv run python CI-DS-Forecasting/get_stock_data.py
+        # No 'working-directory' needed, as we're running from the root.
+
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
         with:
           name: raw-stock-data # Name of the artifact
-          path: data/raw_stock_data.csv # <--- Path from repo root (NOT inside CI-DS-Forecasting)
+          path: data/raw_stock_data.csv # Path from repo root (as your script creates it here)
           retention-days: 1
 
   # Job 2: Data Processing and EDA
@@ -61,7 +60,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: raw-stock-data
-          path: CI-DS-Forecasting/data/ # <--- Downloads to where the script expects it
+          path: data/ # Downloads to this path from repo root
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -74,21 +73,18 @@ jobs:
       - name: Install project dependencies
         run: pipenv install --deploy --system
 
-      - name: Create plots directory for EDA output
-        run: mkdir -p CI-DS-Forecasting/data/plots # Ensure plots directory exists relative to script's CWD
+      # No 'mkdir -p data/plots' needed, as your Python script handles directory creation.
 
       - name: Run Data Cleaning and EDA Script
-        # Execute pipenv run python from within the CI-DS-Forecasting directory
-        run: pipenv run python data_cleaning_EDA.py # <--- Script name only
-        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
+        run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py
 
       - name: Upload Processed Data and EDA Plots Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: | # Paths relative to repo root, pointing to script outputs
-            CI-DS-Forecasting/data/processed_data.csv
-            CI-DS-Forecasting/data/plots/
+          path: |
+            data/processed_data.csv # Path from repo root
+            data/plots/ # Path from repo root
           retention-days: 1
 
   # Job 3: Model Training
@@ -103,7 +99,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: CI-DS-Forecasting/data/ # <--- Downloads to where the script expects it
+          path: data/ # Downloads to this path
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -116,19 +112,16 @@ jobs:
       - name: Install project dependencies
         run: pipenv install --deploy --system
 
-      - name: Create ML Artifacts directory for model output
-        run: mkdir -p CI-DS-Forecasting/ml_artifacts # Ensure directory exists relative to script's CWD
+      # No 'mkdir -p ml_artifacts' needed, as your Python script handles directory creation.
 
       - name: Run Model Training Script
-        # Execute pipenv run python from within the CI-DS-Forecasting directory
-        run: pipenv run python model_training.py # <--- Script name only
-        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
+        run: pipenv run python CI-DS-Forecasting/model_training.py
 
       - name: Upload Trained Models Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: trained-models
-          path: CI-DS-Forecasting/ml_artifacts/prophet_model_*.joblib # Path relative to repo root
+          path: ml_artifacts/prophet_model_*.joblib # Path from repo root
           retention-days: 1
 
   # Job 4: Forecasting and Reporting
@@ -143,13 +136,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: CI-DS-Forecasting/data/ # <--- Downloads to where the script expects it
+          path: data/ # Downloads to this path
 
       - name: Download Trained Models Artifacts
         uses: actions/download-artifact@v4
         with:
           name: trained-models
-          path: CI-DS-Forecasting/ml_artifacts/ # <--- Downloads to where the script expects it
+          path: ml_artifacts/ # Downloads to this path
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -163,13 +156,11 @@ jobs:
         run: pipenv install --deploy --system
 
       - name: Run Forecasting and Reporting Script
-        # Execute pipenv run python from within the CI-DS-Forecasting directory
-        run: pipenv run python ml_forecasting.py # <--- Script name only
-        working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
+        run: pipenv run python CI-DS-Forecasting/ml_forecasting.py
 
       - name: Upload Final Report Plots
         uses: actions/upload-artifact@v4
         with:
           name: final-plots-report # Name for the final artifact group
-          path: CI-DS-Forecasting/ml_artifacts/*.png # Path relative to repo root
+          path: ml_artifacts/*.png # Path from repo root
           retention-days: 7
