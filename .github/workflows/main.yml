@@ -35,11 +35,13 @@ jobs:
         run: pipenv install --deploy --system
         # No working-directory needed here as it's the repo root (where Pipfile is)
 
+      - name: Create data directory for scraping output
+        run: mkdir -p CI-DS-Forecasting/data # Ensure the data directory exists relative to script's CWD
+
       - name: Run Data Scraping Script
         # Execute pipenv run python from within the CI-DS-Forecasting directory
         run: pipenv run python get_stock_data.py # <--- Script name only
         working-directory: './CI-DS-Forecasting' # <--- ADDED WORKING DIRECTORY HERE
-
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
         with:
@@ -59,7 +61,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: raw-stock-data
-          path: data/ # <--- Downloads to this path from repo root
+          path: CI-DS-Forecasting/data/ # <--- Downloads to where the script expects it
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -72,6 +74,9 @@ jobs:
       - name: Install project dependencies
         run: pipenv install --deploy --system
 
+      - name: Create plots directory for EDA output
+        run: mkdir -p CI-DS-Forecasting/data/plots # Ensure plots directory exists relative to script's CWD
+
       - name: Run Data Cleaning and EDA Script
         # Execute pipenv run python from within the CI-DS-Forecasting directory
         run: pipenv run python data_cleaning_EDA.py # <--- Script name only
@@ -81,9 +86,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: |
-            data/processed_data.csv # <--- Path from repo root
-            data/plots/ # <--- Path from repo root
+          path: | # Paths relative to repo root, pointing to script outputs
+            CI-DS-Forecasting/data/processed_data.csv
+            CI-DS-Forecasting/data/plots/
           retention-days: 1
 
   # Job 3: Model Training
@@ -98,7 +103,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: data/ # <--- Downloads to this path
+          path: CI-DS-Forecasting/data/ # <--- Downloads to where the script expects it
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -111,6 +116,9 @@ jobs:
       - name: Install project dependencies
         run: pipenv install --deploy --system
 
+      - name: Create ML Artifacts directory for model output
+        run: mkdir -p CI-DS-Forecasting/ml_artifacts # Ensure directory exists relative to script's CWD
+
       - name: Run Model Training Script
         # Execute pipenv run python from within the CI-DS-Forecasting directory
         run: pipenv run python model_training.py # <--- Script name only
@@ -120,7 +128,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: trained-models
-          path: ml_artifacts/prophet_model_*.joblib # <--- Path from repo root
+          path: CI-DS-Forecasting/ml_artifacts/prophet_model_*.joblib # Path relative to repo root
           retention-days: 1
 
   # Job 4: Forecasting and Reporting
@@ -135,13 +143,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: data/ # <--- Downloads to this path
+          path: CI-DS-Forecasting/data/ # <--- Downloads to where the script expects it
 
       - name: Download Trained Models Artifacts
         uses: actions/download-artifact@v4
         with:
           name: trained-models
-          path: ml_artifacts/ # <--- Downloads to this path
+          path: CI-DS-Forecasting/ml_artifacts/ # <--- Downloads to where the script expects it
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -163,5 +171,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: final-plots-report # Name for the final artifact group
-          path: ml_artifacts/*.png # <--- Path from repo root
+          path: CI-DS-Forecasting/ml_artifacts/*.png # Path relative to repo root
           retention-days: 7
