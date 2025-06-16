@@ -1,12 +1,11 @@
-name: Stock Price Forecasting CI/CDMore actions
+name: Stock Price Forecasting CI/CD
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push events to the 'main' branch.
-  # For initial testing, you might want to change 'main' to 'features/CI-DS'
-  # Once stable, change it back to 'main' or add 'main' here and delete the feature branch.
+  # Triggers the workflow on push events to the 'features/CI-DS' branch for testing.
+  # Once stable, change 'features/CI-DS' to 'main' or add 'main' to the list.
   push:
-    branches: [feature/CI-DS] # [main] Consider changing to [ features/CI-DS ] for initial development
+    branches: [features/CI-DS] # <--- CURRENTLY SET TO YOUR FEATURE BRANCH
 
   # Allows you to run this workflow manually from the Actions tab in GitHub
   workflow_dispatch:
@@ -17,38 +16,37 @@ jobs:
   data_scraping:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4 # Action to check out your repository code
+        # Repository root is the default working directory
 
       - name: Set up Python environment
         uses: actions/setup-python@v5 # Action to set up Python
         with:
-          python-version: '3.12' # Specify the Python version matching your Pipfile
+          python-version: '3.12' # Your confirmed Python version (3.12.1 is compatible with 3.12)
 
       - name: Install pipenv
         run: pip install pipenv # Install pipenv globally in the runner
 
       - name: Install project dependencies
-        # Use --deploy for CI/CD to ensure exact lock file dependencies are installed
-        # --system flag integrates the virtual environment with the system Python,
-        # making it accessible directly by `pipenv run` without path issues in CI.
-        run: pipenv install --deploy #--system
-
-      - name: Create data directory
-        run: mkdir -p data # Ensure the data directory exists before the script runs
+        # Run pipenv install from the repository root where Pipfile/Pipfile.lock reside
+        run: pipenv install --deploy
+        # No 'working-directory' needed here as Pipfile is at repo root
 
       - name: Run Data Scraping Script
-        run: pipenv run python get_stock_data.py
-
-        # Execute your data scraping script
+        # Execute pipenv run python from the repository root, providing the full path to the script.
+        # The script will likely create 'data/' inside 'CI-DS-Forecasting/'
+        run: pipenv run python CI-DS-Forecasting/get_stock_data.py
 
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
         with:
           name: raw-stock-data # Name of the artifact
-          path: data/raw_stock_data.csv # Path to the file(s) to upload
-          retention-days: 1 # How long to keep the artifact (adjust as needed for debugging/storage)
+          # Path now explicitly points inside CI-DS-Forecasting/data/
+          path: CI-DS-Forecasting/data/raw_stock_data.csv # <--- CORRECTED PATH
+          retention-days: 1
 
   # Job 2: Data Processing and EDA
   data_processing_eda:
@@ -62,7 +60,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: raw-stock-data
-          path: data/ # Downloads to this path from repo root
+          # Download path now explicitly points inside CI-DS-Forecasting/data/
+          path: CI-DS-Forecasting/data/ # <--- CORRECTED PATH
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -76,20 +75,16 @@ jobs:
         run: pipenv install --deploy
 
       - name: Run Data Cleaning and EDA Script
+        # The script will create 'data/processed_data.csv' and 'data/plots/' inside 'CI-DS-Forecasting/'
         run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py
-        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
 
-      - name: Upload Processed Data Artifact
+      - name: Upload Processed Data and EDA Plots Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: processed-data
-          path: data/processed_data.csv
-
-      - name: Upload EDA Plots Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: eda-plots
-          path: data/plots/ # Path from repo root
+          name: processed-data-and-eda-plots
+          path: |
+            CI-DS-Forecasting/data/processed_data.csv # <--- CORRECTED PATH
+            # Removed data/plots/ as requested
           retention-days: 1
 
   # Job 3: Model Training
@@ -103,8 +98,9 @@ jobs:
       - name: Download Processed Data Artifact
         uses: actions/download-artifact@v4
         with:
-          name: processed-data
-          path: data/ # Downloads to this path
+          name: processed-data-and-eda-plots
+          # Download path now explicitly points inside CI-DS-Forecasting/data/
+          path: CI-DS-Forecasting/data/ # <--- CORRECTED PATH
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -118,37 +114,38 @@ jobs:
         run: pipenv install --deploy
 
       - name: Run Model Training Script
+        # The script will create 'ml_artifacts/' inside 'CI-DS-Forecasting/'
         run: pipenv run python CI-DS-Forecasting/model_training.py
-        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
 
       - name: Upload Trained Models Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: trained-models
-          path: ml_artifacts/prophet_model_*.joblib # Path from repo root
+          # Path now explicitly points inside CI-DS-Forecasting/ml_artifacts/
+          path: CI-DS-Forecasting/ml_artifacts/prophet_model_*.joblib # <--- CORRECTED PATH
           retention-days: 1
 
   # Job 4: Forecasting and Reporting
   forecasting_reporting:
     runs-on: ubuntu-latest
-    # This job needs the `model_training` job to complete successfully
     needs: model_training
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Download Processed Data Artifact
-        # Needed for ml_forecasting.py to access df_historical (processed_data.csv)
         uses: actions/download-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: data/
+          # Download path now explicitly points inside CI-DS-Forecasting/data/
+          path: CI-DS-Forecasting/data/ # <--- CORRECTED PATH
 
       - name: Download Trained Models Artifacts
         uses: actions/download-artifact@v4
         with:
           name: trained-models
-          path: ml_artifacts/ # Downloads all saved models
+          # Download path now explicitly points inside CI-DS-Forecasting/ml_artifacts/
+          path: CI-DS-Forecasting/ml_artifacts/ # <--- CORRECTED PATH
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -159,14 +156,16 @@ jobs:
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy #--system
+        run: pipenv install --deploy
 
       - name: Run Forecasting and Reporting Script
-        run: pipenv run python ml_forecasting.py
+        # The script will create plots inside 'CI-DS-Forecasting/ml_artifacts/'
+        run: pipenv run python CI-DS-Forecasting/ml_forecasting.py
 
       - name: Upload Final Report Plots
         uses: actions/upload-artifact@v4
         with:
           name: final-plots-report # Name for the final artifact group
-          path: ml_artifacts/*.png # Upload all generated PNG plotsAdd commentMore actions
-          retention-days: 7 # Keep these final outputs longer
+          # Path now explicitly points inside CI-DS-Forecasting/ml_artifacts/
+          path: CI-DS-Forecasting/ml_artifacts/*.png # <--- CORRECTED PATH
+          retention-days: 7
