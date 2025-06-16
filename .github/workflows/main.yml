@@ -32,15 +32,14 @@ jobs:
 
       - name: Install project dependencies
         # Run pipenv install from the repository root where Pipfile/Pipfile.lock reside
-        # REMOVED --system: This ensures pipenv creates/uses its isolated project virtual environment.
         run: pipenv install --deploy
         # No 'working-directory' needed here as Pipfile is at repo root
 
-      # No 'mkdir -p data' needed here, as your Python script handles directory creation at the root.
       - name: Run Data Scraping Script
-        # Execute pipenv run python from the repository root, providing the full path to the script.
+        # Execute pipenv run python from the repository root (DS-Projects/).
+        # This ensures the Python script's 'data' and 'ml_artifacts' refer to the repo root.
         run: pipenv run python CI-DS-Forecasting/get_stock_data.py
-        # No 'working-directory' needed, as we're running from the root.
+        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
 
       - name: Upload Raw Stock Data as Artifact
         uses: actions/upload-artifact@v4 # Action to upload artifacts
@@ -72,12 +71,11 @@ jobs:
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy # REMOVED --system
-
-      # No 'mkdir -p data/plots' needed, as your Python script handles directory creation.
+        run: pipenv install --deploy
 
       - name: Run Data Cleaning and EDA Script
         run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py
+        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
 
       - name: Upload Processed Data and EDA Plots Artifacts
         uses: actions/upload-artifact@v4
@@ -111,12 +109,11 @@ jobs:
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy # REMOVED --system
-
-      # No 'mkdir -p ml_artifacts' needed, as your Python script handles directory creation.
+        run: pipenv install --deploy
 
       - name: Run Model Training Script
         run: pipenv run python CI-DS-Forecasting/model_training.py
+        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
 
       - name: Upload Trained Models Artifacts
         uses: actions/upload-artifact@v4
@@ -154,10 +151,11 @@ jobs:
         run: pip install pipenv
 
       - name: Install project dependencies
-        run: pipenv install --deploy # REMOVED --system
+        run: pipenv install --deploy
 
       - name: Run Forecasting and Reporting Script
         run: pipenv run python CI-DS-Forecasting/ml_forecasting.py
+        working-directory: ${{ github.workspace }} # <--- EXPLICITLY SET WORKING DIRECTORY TO REPO ROOT
 
       - name: Upload Final Report Plots
         uses: actions/upload-artifact@v4
