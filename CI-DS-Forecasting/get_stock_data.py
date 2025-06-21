@@ -3,6 +3,7 @@ import yfinance as yf
 import datetime
 import os
 import time
+import numpy as np # Import numpy for np.nan
 
 # --- Configuration ---
 SP500_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'JPM']
@@ -10,7 +11,15 @@ SP500_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'JPM']
 end_date = datetime.date.today()
 start_date = end_date - datetime.timedelta(days=365 * 2) # Fetch data for the last 2 years
 
-output_dir = 'data'
+# --- Path Correction to ensure output goes to repository root ---
+# Get the absolute path of the current script file (e.g., /path/to/DS-Projects/CI-DS-Forecasting/get_stock_data.py)
+script_path = os.path.abspath(__file__)
+# Get the directory of the script (e.g., /path/to/DS-Projects/CI-DS-Forecasting/)
+script_dir = os.path.dirname(script_path)
+# Go up one level to reach the repository root (e.g., /path/to/DS-Projects/)
+repo_root = os.path.dirname(script_dir)
+
+output_dir = os.path.join(repo_root, 'data') # <--- CORRECTED: Now always points to DS-Projects/data
 output_csv_file = 'raw_stock_data.csv'
 output_filepath = os.path.join(output_dir, output_csv_file)
 
@@ -18,8 +27,8 @@ MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 5
 
 # Define the expected columns in the final output DataFrame.
-# This strictly enforces the schema we want for the final CSV.
-EXPECTED_COLUMNS = ['Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close']
+# Adding new expected columns for macroeconomic data.
+EXPECTED_COLUMNS = ['Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'VIX_Close', 'TNX_Close'] # NEW: Added VIX and TNX
 
 # --- Ensure Output Directory Exists and Delete Old File ---
 os.makedirs(output_dir, exist_ok=True)
@@ -30,104 +39,126 @@ if os.path.exists(output_filepath):
     os.remove(output_filepath)
     print(f"Deleted existing '{output_filepath}' to ensure a clean run.")
 
-# --- Data Fetching Logic ---
-# Initialize an empty list to store DataFrames for each ticker.
-collected_dfs = []
-
-print(f"Starting historical stock data retrieval from {start_date} to {end_date}...")
-
-for ticker in SP500_TICKERS:
+# --- Helper function to fetch single ticker data ---
+def fetch_single_ticker_data(ticker, start_date, end_date, max_retries, retry_delay):
+    """Fetches historical data for a single ticker with retry logic."""
     retries = 0
-    df = pd.DataFrame() # Initialize df for each ticker for the loop
-
-    while retries < MAX_RETRIES:
+    while retries < max_retries:
         try:
-            print(f"\nAttempting to fetch data for ticker: {ticker} (Attempt {retries + 1}/{MAX_RETRIES})...")
-            # The FutureWarning indicates auto_adjust is True by default, which should give 'Adj Close'
+            print(f"  Attempting to fetch data for {ticker} (Attempt {retries + 1}/{max_retries})...")
             df = yf.download(ticker, start=start_date, end=end_date, progress=False)
 
             if df.empty:
-                raise ValueError(f"No data returned for {ticker}. It might be delisted or ticker is wrong.")
+                raise ValueError(f"No data returned for {ticker}.")
             
-            # --- Aggressive Column Normalization and Standardization ---
-            # Debugging: Print initial columns and their type BEFORE any modification
-            print(f"Original columns for {ticker}: {df.columns}")
-            print(f"Type of columns for {ticker}: {type(df.columns)}")
-
-            # 1. Reset index to turn 'Date' into a regular column from the index.
-            # This step should always be done first if Date is the index.
             df.reset_index(inplace=True)
             
-            # 2. **Crucial Fix:** Flatten MultiIndex columns if yfinance returned them in a multi-level way.
-            # Based on your output, df.columns is MultiIndex with names=['Price', 'Ticker']
-            # where level 0 contains ('Close', 'High', etc.) and level 1 contains ('AAPL', etc.).
             if isinstance(df.columns, pd.MultiIndex):
-                # We want the 'Price' level (level 0) for column names.
                 df.columns = df.columns.get_level_values(0)
-                print(f"Columns for {ticker} after MultiIndex flattening (using level 0): {df.columns.tolist()}")
-            else:
-                print(f"Columns for {ticker} are already single-level. Current columns: {df.columns.tolist()}")
-
-            # 3. Clean up column names: strip whitespace, replace spaces with underscores, convert to lowercase.
-            # Apply this to the (now flattened) column names.
+            
             df.columns = [col.strip().replace(' ', '_').lower() for col in df.columns]
-
-            # 4. Rename specific columns to our standard expected names.
-            # This map ensures that 'date' becomes 'Date', 'adj_close' becomes 'Adj Close', etc.
+            
             rename_map = {
-                'date': 'Date',
-                'open': 'Open',
-                'high': 'High',
-                'low': 'Low',
-                'close': 'Close',
-                'volume': 'Volume',
-                'adj_close': 'Adj Close' # Matches the lowercase, underscore-replaced 'adj_close'
+                'date': 'Date', 'open': 'Open', 'high': 'High', 'low': 'Low',
+                'close': 'Close', 'volume': 'Volume', 'adj_close': 'Adj Close'
             }
-            # Only rename columns that actually exist in the DataFrame after flattening and lowercasing
             df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns}, inplace=True)
             
-            # 5. Add 'Ticker' column to identify the stock.
             df['Ticker'] = ticker
             
-            # --- Ensure all EXPECTED_COLUMNS are present and in the correct order ---
-            # First, filter to only include columns that are in EXPECTED_COLUMNS AND are actually present in df
-            cols_to_keep = [col for col in EXPECTED_COLUMNS if col in df.columns]
-            df = df[cols_to_keep]
-
-            # Then, re-add any missing EXPECTED_COLUMNS as NaN to ensure consistent schema for pd.concat
-            for col in EXPECTED_COLUMNS:
-                if col not in df.columns:
-                    print(f"Warning: Expected column '{col}' still not found for ticker {ticker}. Adding as NaN.")
-                    df[col] = pd.NA # Use pandas' native missing value type for consistency
-
-            # Finally, ensure the exact order of EXPECTED_COLUMNS for the DataFrame
-            df = df[EXPECTED_COLUMNS]
-
-            print(f"Columns for {ticker} after final schema enforcement: {df.columns.tolist()}")
-            print(f"First 5 rows for {ticker} after final processing:\n{df.head().to_string()}")
-
-            # If successful, add the processed DataFrame to our list and break retry loop.
-            collected_dfs.append(df)
-            print(f"Successfully processed and added data for {ticker} to list.")
-            break # Exit retry loop on success
+            # Ensure only relevant columns from original download are returned, before merging macro data
+            # Check for 'Close' or 'Adj Close' for main stock data
+            stock_cols = [c for c in ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close'] if c in df.columns]
+            df = df[stock_cols]
+            
+            print(f"  Successfully fetched data for {ticker}.")
+            return df
 
         except Exception as e:
             retries += 1
-            print(f"Failed to fetch data for {ticker}: {e}")
-            if retries < MAX_RETRIES:
-                print(f"Retrying in {RETRY_DELAY_SECONDS} seconds...")
-                time.sleep(RETRY_DELAY_SECONDS)
+            print(f"  Failed to fetch data for {ticker}: {e}")
+            if retries < max_retries:
+                time.sleep(retry_delay)
             else:
-                print(f"Max retries reached for {ticker}. Skipping this ticker. Error: {e}")
-    
-# --- Combine All Collected DataFrames ---
-all_stocks_data = pd.DataFrame() # Re-initialize as empty before final concat
+                print(f"  Max retries reached for {ticker}. Skipping.")
+                return pd.DataFrame() # Return empty DataFrame on failure
 
-if collected_dfs: # Check if the list of DataFrames is not empty
+# --- NEW: Helper function to fetch macroeconomic data ---
+def fetch_macro_data(tickers, start_date, end_date, max_retries, retry_delay):
+    """Fetches macroeconomic data (VIX, TNX) with retry logic."""
+    macro_data = pd.DataFrame()
+    macro_tickers = {
+        '^VIX': 'VIX',  # CBOE Volatility Index
+        '^TNX': 'TNX'   # 10 Year Treasury Yield
+    }
+    
+    macro_dfs = []
+    for yf_ticker, col_prefix in macro_tickers.items():
+        df_macro = fetch_single_ticker_data(yf_ticker, start_date, end_date, max_retries, retry_delay)
+        if not df_macro.empty:
+            # For VIX and TNX, 'Adj Close' might not exist, use 'Close' instead.
+            # Ensure 'Close' exists before attempting to rename.
+            if 'Close' in df_macro.columns:
+                df_macro = df_macro[['Date', 'Close']].rename(columns={'Close': f'{col_prefix}_Close'})
+                macro_dfs.append(df_macro)
+            else:
+                print(f"  Warning: Neither 'Adj Close' nor 'Close' found for {yf_ticker}. Skipping.")
+    
+    if macro_dfs:
+        # Merge all macroeconomic dataframes on 'Date'
+        macro_data = macro_dfs[0]
+        for i in range(1, len(macro_dfs)):
+            macro_data = pd.merge(macro_data, macro_dfs[i], on='Date', how='outer')
+        print(f"Successfully fetched and merged macroeconomic data. Shape: {macro_data.shape}")
+        print("Macro data head:\n", macro_data.head().to_string())
+    else:
+        print("No macroeconomic data fetched successfully.")
+        
+    return macro_data.sort_values('Date').reset_index(drop=True)
+
+
+# --- Data Fetching Logic ---
+print(f"Starting historical stock data retrieval from {start_date} to {end_date}...")
+
+collected_dfs = []
+for ticker in SP500_TICKERS:
+    df_stock = fetch_single_ticker_data(ticker, start_date, end_date, MAX_RETRIES, RETRY_DELAY_SECONDS)
+    if not df_stock.empty:
+        collected_dfs.append(df_stock)
+
+# Fetch macroeconomic data
+print("\nStarting macroeconomic data retrieval...")
+df_macro = fetch_macro_data(SP500_TICKERS, start_date, end_date, MAX_RETRIES, RETRY_DELAY_SECONDS)
+
+
+# --- Combine All Collected DataFrames and Merge Macro Data ---
+all_stocks_data = pd.DataFrame() 
+
+if collected_dfs:
     print("\nAll individual stock DataFrames collected. Performing final concatenation...")
-    # Concatenate all DataFrames in the list vertically.
-    # ignore_index=True ensures a clean, continuous index for the combined DataFrame.
-    all_stocks_data = pd.concat(collected_dfs, ignore_index=True) 
+    all_stocks_data = pd.concat(collected_dfs, ignore_index=True)
+    all_stocks_data['Date'] = pd.to_datetime(all_stocks_data['Date'])
+    df_macro['Date'] = pd.to_datetime(df_macro['Date'])
+
+    # Merge stock data with macroeconomic data
+    if not df_macro.empty:
+        print(f"Merging stock data with macroeconomic data (VIX, TNX)...")
+        # Use left merge to keep all stock data, and add macro data where available
+        all_stocks_data = pd.merge(all_stocks_data, df_macro, on='Date', how='left')
+        print(f"Combined DataFrame shape after macro merge: {all_stocks_data.shape}")
+        print(f"Combined DataFrame columns after macro merge: {all_stocks_data.columns.tolist()}")
+    else:
+        print("Macroeconomic data is empty, skipping merge.")
+
+    # Ensure all EXPECTED_COLUMNS are present and in the correct order
+    for col in EXPECTED_COLUMNS:
+        if col not in all_stocks_data.columns:
+            all_stocks_data[col] = np.nan # Use np.nan for numerical columns
+            print(f"Warning: Expected column '{col}' not found after merge. Added as NaN.")
+
+    all_stocks_data = all_stocks_data[EXPECTED_COLUMNS]
+    all_stocks_data.sort_values(by=['Ticker', 'Date'], inplace=True)
+
     print(f"Final combined DataFrame shape: {all_stocks_data.shape}")
     print(f"Final combined DataFrame columns: {all_stocks_data.columns.tolist()}")
     print(f"Sample of final combined DataFrame (first 5 rows):\n{all_stocks_data.head().to_string()}")
