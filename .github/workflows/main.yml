@@ -10,6 +10,10 @@ on:
   # Allows you to run this workflow manually from the Actions tab in GitHub
   workflow_dispatch:
 
+  # Schedule the workflow to run every Friday at 10:00 PM UTC (5:00 PM EST / 6:00 PM EDT)
+  schedule:
+    - cron: '0 22 * * 5'
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # Job 1: Data Scraping
@@ -75,14 +79,15 @@ jobs:
         run: pipenv install --deploy
 
       - name: Run Data Cleaning and EDA Script
-        # The script will create 'data/processed_data.csv' in the repository root's data directory.
+        # The script will create 'data/processed_data.csv' and plots in 'data/plots/'
         run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py
 
       - name: Upload Processed Data and EDA Plots Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: data/processed_data.csv # <--- REFRACTORED PATH, only uploading the CSV
+          # MODIFIED: Upload the entire 'data' directory content (which includes 'processed_data.csv' and 'plots/')
+          path: data/ # <--- MODIFIED PATH
           retention-days: 1
 
   # Job 3: Model Training
@@ -98,7 +103,7 @@ jobs:
         with:
           name: processed-data-and-eda-plots
           # Download path now explicitly points to the repository root's data directory
-          path: data/ # <--- CORRECTED PATH
+          path: data/ # <--- CORRECTED PATH (will now correctly place processed_data.csv AND the plots dir)
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
