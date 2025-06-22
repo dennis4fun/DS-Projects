@@ -13,6 +13,8 @@ sentence-transformers = "*"
 matplotlib = "*"
 seaborn = "*"
 prophet = "*"
+requests = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
