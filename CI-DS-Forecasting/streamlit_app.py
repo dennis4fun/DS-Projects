@@ -5,23 +5,19 @@ import subprocess
 import requests
 import json
 import time
-from dotenv import load_dotenv # NEW: Import load_dotenv
+from dotenv import load_dotenv
 
 # --- Load environment variables from .env file ---
-load_dotenv() # NEW: Load variables at the very beginning
+load_dotenv()
 
 # --- Configuration ---
-# Get the absolute path of the current script file
 script_path = os.path.abspath(__file__)
-# Get the directory of the script (e.g., /path/to/DS-Projects/CI-DS-Forecasting/)
 script_dir = os.path.dirname(script_path)
-# Go up one level to reach the repository root (e.g., /path/to/DS-Projects/)
 repo_root = os.path.dirname(script_dir)
 
-# Define paths to your data and artifacts
 DATA_DIR = os.path.join(repo_root, 'data')
 ML_ARTIFACTS_DIR = os.path.join(repo_root, 'ml_artifacts')
-PLOTS_DIR = os.path.join(DATA_DIR, 'plots') # EDA plots are here
+PLOTS_DIR = os.path.join(DATA_DIR, 'plots')
 
 # Paths to your core Python scripts
 GET_STOCK_DATA_SCRIPT = os.path.join(script_dir, 'get_stock_data.py')
@@ -30,10 +26,10 @@ MODEL_TRAINING_SCRIPT = os.path.join(script_dir, 'model_training.py')
 ML_FORECASTING_SCRIPT = os.path.join(script_dir, 'ml_forecasting.py')
 
 # GitHub API Configuration
-GITHUB_REPO_OWNER = "YOUR_GITHUB_USERNAME" # <--- IMPORTANT: Replace with your GitHub username
-GITHUB_REPO_NAME = "YOUR_REPO_NAME"       # <--- IMPORTANT: Replace with your repository name (e.g., DS-Projects)
-GITHUB_WORKFLOW_NAME = "Stock Price Forecasting CI/CD" # Name from main.yml
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") # Now correctly reads from .env or system env
+GITHUB_REPO_OWNER = "dennis4fun"
+GITHUB_REPO_NAME = "DS-Projects"
+GITHUB_WORKFLOW_NAME = "Stock Price Forecasting CI/CD"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 # --- Helper Functions ---
 
@@ -46,7 +42,7 @@ def run_script_and_capture_output(script_path, script_name):
             capture_output=True,
             text=True,
             check=True,
-            cwd=repo_root # Run from repo root to ensure pathing works
+            cwd=repo_root
         )
         st.success(f"{script_name} completed successfully!")
         st.text_area(f"{script_name} Output:", process.stdout, height=200)
@@ -62,7 +58,7 @@ def run_script_and_capture_output(script_path, script_name):
         st.error(f"Error: pipenv or python not found. Ensure pipenv is installed and in your PATH.")
         return False, "pipenv or python not found."
 
-@st.cache_data(ttl=60) # Cache for 60 seconds to avoid excessive API calls
+@st.cache_data(ttl=60)
 def get_latest_github_workflow_run_status():
     """Fetches the status of the latest workflow run from GitHub API."""
     if not GITHUB_TOKEN:
@@ -76,16 +72,14 @@ def get_latest_github_workflow_run_status():
     
     try:
         response = requests.get(url, headers=headers)
-        response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        response.raise_for_status()
         runs_data = response.json()
 
-        # Filter runs by workflow name (though main.yml implies one workflow)
-        # and get the latest one
         latest_run = None
         for run in runs_data.get('workflow_runs', []):
             if run['name'] == GITHUB_WORKFLOW_NAME:
                 latest_run = run
-                break # Found the most recent run for the specified workflow
+                break
 
         if latest_run:
             return {
@@ -113,6 +107,60 @@ def load_and_display_image(image_path, caption, width=800):
     else:
         st.warning(f"Image not found: {image_path}. Please run the forecasting scripts.")
 
+@st.cache_data(ttl=300) # Cache dataframes for 5 minutes
+def load_csv_data(filepath):
+    """Loads a CSV file into a pandas DataFrame."""
+    if os.path.exists(filepath):
+        try:
+            # Removed errors='coerce' as it's not supported in older pandas versions with parse_dates
+            df = pd.read_csv(filepath, parse_dates=['Date'])
+            return df
+        except Exception as e:
+            st.error(f"Error loading {os.path.basename(filepath)}: {e}")
+            return pd.DataFrame()
+    else:
+        return pd.DataFrame()
+
+# --- Moved display_filterable_dataframe here ---
+def display_filterable_dataframe(df, key_suffix):
+    """Displays a DataFrame with filtering options by Ticker and Date range."""
+    st.markdown("---")
+    st.markdown("**Filter Data:**")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Ticker filter
+        all_tickers = ['All'] + sorted(df['Ticker'].unique().tolist()) if 'Ticker' in df.columns else ['All']
+        selected_ticker = st.selectbox("Select Ticker", all_tickers, key=f"ticker_filter_{key_suffix}")
+        
+    with col2:
+        # Date range filter
+        min_date = df['Date'].min().date() if 'Date' in df.columns and not df['Date'].empty else pd.Timestamp.today().date() - pd.Timedelta(days=365)
+        max_date = df['Date'].max().date() if 'Date' in df.columns and not df['Date'].empty else pd.Timestamp.today().date()
+        
+        start_date = st.date_input("Start Date", value=min_date, min_value=min_date, max_value=max_date, key=f"start_date_{key_suffix}")
+        end_date = st.date_input("End Date", value=max_date, min_value=min_date, max_value=max_date, key=f"end_date_{key_suffix}")
+
+    filtered_df = df.copy()
+
+    # Apply Ticker filter
+    if selected_ticker != 'All' and 'Ticker' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['Ticker'] == selected_ticker]
+
+    # Apply Date range filter
+    if 'Date' in filtered_df.columns:
+        # Ensure date columns are datetime objects for proper comparison
+        filtered_df['Date'] = pd.to_datetime(filtered_df['Date'])
+        start_dt = pd.to_datetime(start_date)
+        end_dt = pd.to_datetime(end_date)
+        filtered_df = filtered_df[(filtered_df['Date'] >= start_dt) & (filtered_df['Date'] <= end_dt)]
+
+    st.write(f"Filtered Rows: {len(filtered_df)}")
+    st.dataframe(filtered_df, height=300)
+# --- End of moved display_filterable_dataframe ---
+
+
 # --- Streamlit UI Layout ---
 
 st.set_page_config(
@@ -128,13 +176,14 @@ This dashboard allows you to:
 - **View** the latest stock price forecasts and EDA plots.
 - **Run** the entire data pipeline locally with a single click.
 - **Check** the status of the automated CI/CD pipeline on GitHub Actions.
+- **Inspect** the raw and processed data files.
 """)
 
 # --- Sidebar for Navigation/Actions ---
 st.sidebar.header("Navigation & Actions")
 selected_section = st.sidebar.radio(
     "Go to:",
-    ["View Forecasts & EDA", "Run Local Pipeline", "GitHub Actions Status"]
+    ["View Forecasts & EDA", "View Data Files", "Run Local Pipeline", "GitHub Actions Status"]
 )
 
 # --- Main Content Area ---
@@ -165,6 +214,29 @@ if selected_section == "View Forecasts & EDA":
     load_and_display_image(os.path.join(PLOTS_DIR, 'tnx_close_timeline.png'), 
                            "10-Year US Treasury Yield (TNX) Close Price Over Time")
 
+
+elif selected_section == "View Data Files": # NEW SECTION FOR DATA FILES
+    st.header("🗂️ Raw and Processed Data Files")
+    st.markdown("Inspect the raw and processed stock data. Use the filters to explore specific tickers or dates.")
+
+    raw_csv_path = os.path.join(DATA_DIR, 'raw_stock_data.csv')
+    processed_csv_path = os.path.join(DATA_DIR, 'processed_data.csv')
+
+    st.subheader("Raw Stock Data")
+    raw_df = load_csv_data(raw_csv_path)
+    if not raw_df.empty:
+        st.write(f"Displaying {len(raw_df)} rows from `raw_stock_data.csv`")
+        display_filterable_dataframe(raw_df, "raw_data_filter")
+    else:
+        st.warning(f"Raw data file not found or is empty: `{raw_csv_path}`. Please run the pipeline locally.")
+
+    st.subheader("Processed Stock Data")
+    processed_df = load_csv_data(processed_csv_path)
+    if not processed_df.empty:
+        st.write(f"Displaying {len(processed_df)} rows from `processed_data.csv`")
+        display_filterable_dataframe(processed_df, "processed_data_filter")
+    else:
+        st.warning(f"Processed data file not found or is empty: `{processed_csv_path}`. Please run the pipeline locally and ensure `data_cleaning_EDA.py` produces output.")
 
 elif selected_section == "Run Local Pipeline":
     st.header("⚙️ Run Full Data Pipeline Locally")
@@ -222,11 +294,6 @@ elif selected_section == "Run Local Pipeline":
         st.success("🎉 Full Pipeline Run Completed Successfully Locally! 🎉")
         st.write("The plots and processed data in your local `data/` and `ml_artifacts/` folders have been updated.")
         
-        # Optionally display full combined output
-        # with st.expander("View Full Pipeline Output"):
-        #     st.text_area("All Script Outputs:", "\n---\n".join(all_output), height=500)
-
-
 elif selected_section == "GitHub Actions Status":
     st.header("🌐 GitHub Actions Workflow Status")
     st.markdown(f"""
