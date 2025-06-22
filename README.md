@@ -172,3 +172,46 @@ While this is a functional first example showcasing the CI process in 4 jobs usi
 - **Real-Automated Report Generation:** Integrating with powerful Large Language Models (LLMs) (potentially self-hosted or via API) to automatically generate comprehensive financial reports based on the forecast results, offering textual analysis and insights beyond just charts and enabling natural language query prompts.
 
 - **Deployment Automation:** Extending the CI pipeline to include Continuous Delivery/Deployment (CD) to automatically deploy trained models to an inference service or updated dashboards.
+
+### 📜 Version History
+
+**1.0.0 - Initial Release & Core Enhancements (June 21, 2025)**
+This marks the initial major release, focusing on establishing a robust data pipeline and improving forecasting capabilities.
+
+Key Updates:
+
+- Expanded Data Collection (`get_stock_data.py`):
+
+  - Added fetching of macroeconomic indicators (VIX Index and 10-Year US Treasury Yield - TNX) alongside stock data.
+
+  - Enhanced robustness for data fetching, including improved `Ticker` column handling and `Adj Close` population.
+
+- Enhanced Data Cleaning & EDA (`data_cleaning_EDA.py`):
+
+  - Implemented more robust NaN handling with `ffill()/bfill()` grouped by ticker for stock data and globally for macroeconomic data.
+
+  - Introduced filtering to remove tickers with insufficient data points.
+
+  - Added new EDA visualizations for VIX and TNX data.
+
+  - Ensured generation of a non-empty `processed_data.csv`.
+
+- Improved Model Training (`model_training.py`):
+
+  - Integrated 'Open', 'High', 'Low', 'Close', 'Volume', 'VIX_Close', and 'TNX_Close' as external regressors into the Prophet models.
+
+  - Adjusted Prophet hyperparameters (changepoint_prior_scale) for increased flexibility.
+
+- Refined ML Forecasting & Reporting (ml_forecasting.py):
+
+  - Implemented a rolling average strategy for future regressor values to provide slightly more dynamic forecasts.
+
+  - Corrected plot saving location: All forecast plots (`historical_and_future_forecast.png`, `future_forecast_only.png`, `quarterly_forecast_changes.png`) are now correctly saved to the `ml_artifacts`/ directory.
+
+  - Enhanced Plot Clarity: Increased visibility of confidence intervals, zoomed Y-axis for future forecasts, and added clear green/red color-coding to the quarterly changes plot to indicate projected gains/losses.
+
+- Automated Weekly Pipeline (`.github/workflows/main.yml`):
+
+  - Configured the GitHub Actions workflow to run automatically every Friday at 5:00 PM EST (22:00 UTC), ensuring weekly updates based on the latest market close data.
+
+  - Adjusted artifact upload paths to ensure all relevant data and plots (including EDA plots) are available from GitHub Actions runs.
