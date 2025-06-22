@@ -64,12 +64,28 @@ def fetch_single_ticker_data(ticker, start_date, end_date, max_retries, retry_de
             }
             df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns}, inplace=True)
             
+            # --- FIX START: Ensure 'Ticker' column is added BEFORE column selection ---
             df['Ticker'] = ticker
-            
-            # Ensure only relevant columns from original download are returned, before merging macro data
-            # Check for 'Close' or 'Adj Close' for main stock data
-            stock_cols = [c for c in ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close'] if c in df.columns]
+
+            # --- NEW FIX: Ensure 'Adj Close' is populated immediately here ---
+            # If 'adj_close' exists after initial rename, ensure it's not all NaNs and populate from 'close' if needed.
+            if 'Adj Close' in df.columns and df['Adj Close'].isnull().all() and 'Close' in df.columns:
+                df['Adj Close'] = df['Close']
+                print(f"  Filled 'Adj Close' for {ticker} by copying from 'Close'.")
+            elif 'Adj Close' not in df.columns and 'Close' in df.columns:
+                # If 'Adj Close' column doesn't exist at all but 'Close' does, create it
+                df['Adj Close'] = df['Close']
+                print(f"  Created 'Adj Close' for {ticker} by copying from 'Close'.")
+            elif 'Adj Close' not in df.columns and 'Close' not in df.columns:
+                # If neither Close nor Adj Close, create Adj Close as NaN
+                df['Adj Close'] = np.nan 
+                print(f"  Warning: Neither 'Close' nor 'Adj Close' found for {ticker}. 'Adj Close' set to NaN.")
+
+            # Ensure only relevant columns are returned, now explicitly including 'Ticker'
+            # FIX: Added 'Ticker' to the list of columns to select
+            stock_cols = [c for c in ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Ticker'] if c in df.columns]
             df = df[stock_cols]
+            # --- FIX END ---
             
             print(f"  Successfully fetched data for {ticker}.")
             return df
