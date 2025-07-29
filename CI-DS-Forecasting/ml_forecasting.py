@@ -12,53 +12,59 @@ input_dir = 'data'
 processed_csv_file = 'processed_data.csv'
 input_filepath = os.path.join(input_dir, processed_csv_file)
 
-# Define the directory where models and plots are saved
+# Define the directory where models, plots, AND the final forecast CSV are saved
 ml_artifacts_dir = 'ml_artifacts'
 output_historical_future_forecast_plot = 'historical_and_future_forecast.png' # Plot for historical + future forecast
 output_future_only_plot = 'future_forecast_only.png' # Plot for future forecast only
-output_quarterly_changes_plot = 'quarterly_forecast_changes.png' # NEW: Plot for quarterly changes
+output_quarterly_changes_plot = 'quarterly_forecast_changes.png' # Plot for quarterly changes
+# NEW: Output file for the final combined forecast data
+output_final_forecast_csv = 'final_forecast_data.csv'
+output_final_forecast_filepath = os.path.join(ml_artifacts_dir, output_final_forecast_csv)
 
-# --- Ensure Output Directory Exists ---
-os.makedirs(ml_artifacts_dir, exist_ok=True)
+
+# --- Ensure Output Directory Exists ---\r
+os.makedirs(ml_artifacts_dir, exist_ok=True) # Ensure ML artifacts dir exists
+# The input_dir ('data') should already exist from previous steps in GHA or local setup
 print(f"Ensured directory '{ml_artifacts_dir}' exists for saving forecasts.")
 
-# --- Load Data ---
+
+# --- Load Data ---\r
 # We need historical data to get the last known values for Prophet to extend from
-print(f"Attempting to load processed data from '{input_filepath}' for historical context...")
+print(f"Attempting to load processed data from '{input_filepath}' for historical context...\r")
 try:
     df_historical = pd.read_csv(input_filepath, parse_dates=['Date'])
-    print("Historical data loaded successfully.")
+    print("Historical data loaded successfully.\r")
     df_historical.sort_values(by=['Ticker', 'Date'], inplace=True)
 except FileNotFoundError:
-    print(f"Error: The file '{input_filepath}' was not found.")
-    print("Please ensure 'processed_data.csv' exists in the 'data/' directory.")
+    print(f"Error: The file '{input_filepath}' was not found.\r")
+    print("Please ensure 'processed_data.csv' exists in the 'data/' directory (run data_cleaning_EDA.py first).\r")
     exit()
 except Exception as e:
-    print(f"An error occurred while loading historical data: {e}")
+    print(f"An error occurred while loading historical data: {e}\r")
     exit()
 
-# --- Load Trained Prophet Models ---
-print("\nAttempting to load trained Prophet models...")
+# --- Load Trained Prophet Models ---\r
+print("\nAttempting to load trained Prophet models...\r")
 loaded_models = {}
 for ticker in df_historical['Ticker'].unique():
     model_filepath = os.path.join(ml_artifacts_dir, f'prophet_model_{ticker}.joblib')
     try:
         loaded_model = joblib.load(model_filepath)
         loaded_models[ticker] = loaded_model
-        print(f"Loaded Prophet model for {ticker}.")
+        print(f"Loaded Prophet model for {ticker}.\r")
     except FileNotFoundError:
-        print(f"Error: Model for {ticker} not found at '{model_filepath}'. Please ensure 'model_training.py' was run successfully.")
+        print(f"Error: Model for {ticker} not found at '{model_filepath}'. Please ensure 'model_training.py' was run successfully.\r")
         exit()
     except Exception as e:
-        print(f"An error occurred while loading the model for {ticker}: {e}")
+        print(f"An error occurred while loading the model for {ticker}: {e}\r")
         exit()
 
 if not loaded_models:
-    print("No models were loaded. Exiting forecasting script.")
+    print("No models were loaded. Exiting forecasting script.\r")
     exit()
 
-# --- Future Stock Price Forecasting with Prophet ---
-print("\n--- Starting Future Stock Price Forecasting with Prophet ---")
+# --- Future Stock Price Forecasting with Prophet ---\r
+print("\n--- Starting Future Stock Price Forecasting with Prophet ---\r")
 
 last_historical_date = df_historical['Date'].max()
 forecast_end_date = datetime.date(2025, 12, 31)
@@ -66,12 +72,12 @@ forecast_end_date = datetime.date(2025, 12, 31)
 future_dates = pd.date_range(start=last_historical_date + pd.Timedelta(days=1),
                              end=forecast_end_date, freq='B')
 
-print(f"Forecasting from {last_historical_date.date()} to {forecast_end_date} ({len(future_dates)} business days) for all tickers.")
+print(f"Forecasting from {last_historical_date.date()} to {forecast_end_date} ({len(future_dates)} business days) for all tickers.\r")
 
 future_forecast_df_list = []
 
 for ticker, model in loaded_models.items():
-    print(f"\nGenerating forecast for ticker: {ticker}")
+    print(f"\nGenerating forecast for ticker: {ticker}\r")
     
     ticker_historical_df = df_historical[df_historical['Ticker'] == ticker].copy()
     ticker_historical_df['ds'] = pd.to_datetime(ticker_historical_df['Date'])
@@ -91,12 +97,12 @@ for ticker, model in loaded_models.items():
     
     future_forecast_df_list.append(ticker_forecast_data)
     
-    print(f"  {ticker} forecast generated for {len(ticker_forecast_data)} periods. Sample tail:\n{ticker_forecast_data.tail().to_string()}")
+    print(f"  {ticker} forecast generated for {len(ticker_forecast_data)} periods. Sample tail:\r{ticker_forecast_data.tail().to_string()}\r")
 
 future_forecast_df = pd.concat(future_forecast_df_list, ignore_index=True)
 
 
-# --- Prepare data for plotting ---
+# --- Prepare data for plotting ---\r
 plot_data_parts = []
 
 # 1. Historical Actuals (from df_historical)
@@ -117,22 +123,22 @@ combined_forecast_df['Predicted_Adj_Close'] = pd.to_numeric(combined_forecast_df
 combined_forecast_df.sort_values(by=['Ticker', 'Date', 'Type'], inplace=True)
 
 
-# --- Debugging combined_forecast_df before plotting ---
-print("\n--- Debugging combined_forecast_df before plotting ---")
-print("Combined DataFrame Info:")
+# --- Debugging combined_forecast_df before plotting ---\r
+print("\n--- Debugging combined_forecast_df before plotting ---\r")
+print("Combined DataFrame Info:\r")
 combined_forecast_df.info()
-print("\nCombined DataFrame Head:")
+print("\nCombined DataFrame Head:\r")
 print(combined_forecast_df.head().to_string())
-print("\nCombined DataFrame Tail:")
+print("\nCombined DataFrame Tail:\r")
 print(combined_forecast_df.tail().to_string())
-print("\nUnique Types in Combined DataFrame:", combined_forecast_df['Type'].unique())
-print("\nMin/Max Dates in Combined DataFrame:")
-print(f"Min Date: {combined_forecast_df['Date'].min()}")
-print(f"Max Date: {combined_forecast_df['Date'].max()}")
-print("--- End Debugging ---")
+print("\nUnique Types in Combined DataFrame:\r", combined_forecast_df['Type'].unique())
+print("\nMin/Max Dates in Combined DataFrame:\r")
+print(f"Min Date: {combined_forecast_df['Date'].min()}\r")
+print(f"Max Date: {combined_forecast_df['Date'].max()}\r")
+print("--- End Debugging ---\r")
 
 
-# --- Visualization 1: Historical and Future Forecast ---
+# --- Visualization 1: Historical and Future Forecast ---\r
 plt.figure(figsize=(18, 9)) # Slightly adjusted figure size for better readability
 
 line_styles = {
@@ -226,11 +232,11 @@ plt.grid(True, linestyle='--', alpha=0.7)
 plt.tight_layout(rect=[0, 0, 0.9, 1]) # Adjust layout to make space for legends
 plt.savefig(os.path.join(ml_artifacts_dir, output_historical_future_forecast_plot))
 plt.close()
-print(f"Generated and saved: Historical and Future Stock Price Forecast Plot to {os.path.join(ml_artifacts_dir, output_historical_future_forecast_plot)}")
+print(f"Generated and saved: Historical and Future Stock Price Forecast Plot to {os.path.join(ml_artifacts_dir, output_historical_future_forecast_plot)}\r")
 
 
-# --- Visualization 2: Future Forecast Only ---
-print("\n--- Generating Future Forecast Only Plot ---")
+# --- Visualization 2: Future Forecast Only ---\r
+print("\n--- Generating Future Forecast Only Plot ---\r")
 plt.figure(figsize=(15, 7)) # Adjust figure size
 
 if not future_forecast_df.empty:
@@ -302,13 +308,13 @@ if not future_forecast_df.empty:
     plt.tight_layout(rect=[0, 0, 0.9, 1])
     plt.savefig(os.path.join(ml_artifacts_dir, output_future_only_plot))
     plt.close()
-    print(f"Generated and saved: Future Forecast Only Plot to {os.path.join(ml_artifacts_dir, output_future_only_plot)}")
+    print(f"Generated and saved: Future Forecast Only Plot to {os.path.join(ml_artifacts_dir, output_future_only_plot)}\r")
 else:
-    print("No future forecast data to plot in 'Future Forecast Only' graph.")
+    print("No future forecast data to plot in 'Future Forecast Only' graph.\r")
 
 
-# --- NEW Visualization 3: Quarterly Forecast Changes ---
-print("\n--- Generating Quarterly Forecast Changes Plot ---")
+# --- NEW Visualization 3: Quarterly Forecast Changes ---\r
+print("\n--- Generating Quarterly Forecast Changes Plot ---\r")
 quarterly_changes_list = []
 
 # Define the end dates for the remaining quarters of 2025
@@ -374,9 +380,189 @@ if not quarterly_changes_df.empty:
     plt.tight_layout(rect=[0, 0, 0.9, 1])
     plt.savefig(os.path.join(ml_artifacts_dir, output_quarterly_changes_plot))
     plt.close()
-    print(f"Generated and saved: Quarterly Forecast Changes Plot to {os.path.join(ml_artifacts_dir, output_quarterly_changes_plot)}")
+    print(f"Generated and saved: Quarterly Forecast Changes Plot to {os.path.join(ml_artifacts_dir, output_quarterly_changes_plot)}\r")
 else:
-    print("No quarterly forecast data to plot in 'Quarterly Forecast Changes' graph.")
+    print("No quarterly forecast data to plot in 'Quarterly Forecast Changes' graph.\r")
 
-print("\nFuture Forecasting complete.")
-print("ML Forecasting script execution finished.")
+print("\nFuture Forecasting complete.\r")
+print("ML Forecasting script execution finished.\r")
+
+}
+{
+type: uploaded file
+fileName: main.yml
+fullContent:
+name: Stock Price Forecasting CI/CD
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push events to the 'features/CI-DS' branch for testing.
+  # Once stable, change 'features/CI-DS' to 'main' or add 'main' to the list.
+  push:
+    branches: [features/CI-DS] # <--- CURRENTLY SET TO YOUR FEATURE BRANCH
+
+  # Allows you to run this workflow manually from the Actions tab in GitHub
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # Job 1: Data Scraping
+  data_scraping:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Action to check out your repository code
+        # Repository root is the default working directory
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v5 # Action to set up Python
+        with:
+          python-version: '3.12' # Your confirmed Python version (3.12.1 is compatible with 3.12)
+
+      - name: Install pipenv
+        run: pip install pipenv # Install pipenv globally in the runner
+
+      - name: Install project dependencies
+        # Run pipenv install from the repository root where Pipfile/Pipfile.lock reside
+        run: pipenv install --deploy
+        # No 'working-directory' needed here as Pipfile is at repo root
+
+      - name: Run Data Scraping Script
+        # Execute pipenv run python from the repository root, providing the full path to the script.
+        # The script will create 'data/' in the repository root.
+        run: pipenv run python CI-DS-Forecasting/get_stock_data.py
+
+      - name: Upload Raw Stock Data as Artifact
+        uses: actions/upload-artifact@v4 # Action to upload artifacts
+        with:
+          name: raw-stock-data # Name of the artifact
+          # Path now explicitly points to the repository root's data directory
+          path: data/raw_stock_data.csv # <--- CORRECTED PATH
+          retention-days: 1
+
+  # Job 2: Data Processing and EDA
+  data_processing_eda:
+    runs-on: ubuntu-latest
+    needs: data_scraping
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Raw Stock Data Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: raw-stock-data
+          # Download path now explicitly points to the repository root's data directory
+          path: data/ # <--- CORRECTED PATH
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pipenv
+        run: pip install pipenv
+
+      - name: Install project dependencies
+        run: pipenv install --deploy
+
+      - name: Run Data Cleaning and EDA Script
+        # The script will create 'data/processed_data.csv' in the repository root's data directory.
+        run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py
+
+      - name: Upload Processed Data and EDA Plots Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-data-and-eda-plots
+          path: data/processed_data.csv # <--- REFRACTORED PATH, only uploading the CSV
+          retention-days: 1
+
+  # Job 3: Model Training
+  model_training:
+    runs-on: ubuntu-latest
+    needs: data_processing_eda
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Processed Data Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: processed-data-and-eda-plots
+          # Download path now explicitly points to the repository root's data directory
+          path: data/ # <--- CORRECTED PATH
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pipenv
+        run: pip install pipenv
+
+      - name: Install project dependencies
+        run: pipenv install --deploy
+
+      - name: Run Model Training Script
+        # The script will create 'ml_artifacts/' in the repository root.
+        run: pipenv run python CI-DS-Forecasting/model_training.py
+
+      - name: Upload Trained Models Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-models
+          # Path now explicitly points to the repository root's ml_artifacts directory
+          path: ml_artifacts/prophet_model_*.joblib # <--- CORRECTED PATH
+          retention-days: 1
+
+  # Job 4: Forecasting and Reporting
+  forecasting_reporting:
+    runs-on: ubuntu-latest
+    needs: model_training
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Processed Data Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: processed-data-and-eda-plots
+          # Download path now explicitly points to the repository root's data directory
+          path: data/ # <--- CORRECTED PATH
+
+      - name: Download Trained Models Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: trained-models
+          # Download path now explicitly points to the repository root's ml_artifacts directory
+          path: ml_artifacts/ # <--- CORRECTED PATH
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pipenv
+        run: pip install pipenv
+
+      - name: Install project dependencies
+        run: pipenv install --deploy
+
+      - name: Run Forecasting and Reporting Script
+        # The script will create plots in the repository root's ml_artifacts directory.
+        run: pipenv run python CI-DS-Forecasting/ml_forecasting.py
+
+      - name: Upload Final Report Plots
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-plots-report # Name for the final artifact group
+          # Path now explicitly points to the repository root's ml_artifacts directory
+          path: ml_artifacts/*.png # <--- CORRECTED PATH
+          retention-days: 7
+
+}
+{
+type: uploaded file
+fileName: image_6463f7.
