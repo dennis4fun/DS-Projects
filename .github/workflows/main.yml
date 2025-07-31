@@ -180,7 +180,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull origin feature/CI-DS
           git add ml_artifacts/final_forecast_data.csv
-          git commit -m "Auto-update: latest forecast CSV"
+          git commit -m "Auto-update: latest forecast CSV" || echo "No changes to commit"
           git push origin feature/CI-DS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
