@@ -167,3 +167,11 @@ jobs:
           # Path now explicitly points to the repository root's ml_artifacts directory
           path: ml_artifacts/*.png # <--- CORRECTED PATH
           retention-days: 7
+
+      - name: Upload Final Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-report # Name for the final artifact group
+          # Path now explicitly points to the repository root's ml_artifacts directory
+          path: ml_artifacts/final_forecast_data.csv # <--- CORRECTED PATH
+          retention-days: 7

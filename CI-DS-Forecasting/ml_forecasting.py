@@ -386,3 +386,8 @@ else:
 
 print("\nFuture Forecasting complete.\r")
 print("ML Forecasting script execution finished.\r")
+# Save final forecast CSV
+output_final_forecast_csv = 'final_forecast_data.csv'
+output_final_forecast_filepath = os.path.join(ml_artifacts_dir, output_final_forecast_csv)
+combined_forecast_df.to_csv(output_final_forecast_filepath, index=False)
+print(f"Saved final forecast data to {output_final_forecast_filepath}")
