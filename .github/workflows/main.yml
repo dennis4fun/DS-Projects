@@ -175,3 +175,12 @@ jobs:
           # Path now explicitly points to the repository root's ml_artifacts directory
           path: ml_artifacts/final_forecast_data.csv # <--- CORRECTED PATH
           retention-days: 7
+
+      - name: Commit and Push Final Forecast CSV to feature/CI-DS
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull origin feature/CI-DS
+          git add ml_artifacts/final_forecast_data.csv
+          git commit -m "Auto-update: latest forecast CSV"
+          git push origin feature/CI-DS
