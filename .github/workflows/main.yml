@@ -10,6 +10,10 @@ on:
   # Allows you to run this workflow manually from the Actions tab in GitHub
   workflow_dispatch:
 
+  # Schedule the workflow to run every Friday at 10:00 PM UTC (5:00 PM EST / 6:00 PM EDT)
+  schedule:
+    - cron: '0 22 * * 5'
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # Job 1: Data Scraping
@@ -55,6 +59,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        # This action provides the necessary token to push back to the repo
+        # The default GITHUB_TOKEN has write permissions for push/schedule events.
 
       - name: Download Raw Stock Data Artifact
         uses: actions/download-artifact@v4
@@ -75,14 +81,37 @@ jobs:
         run: pipenv install --deploy
 
       - name: Run Data Cleaning and EDA Script
-        # The script will create 'data/processed_data.csv' in the repository root's data directory.
+        # The script will create 'data/processed_data.csv' and plots in 'data/plots/'
         run: pipenv run python CI-DS-Forecasting/data_cleaning_EDA.py
+
+      # NEW STEP: Commit and push the processed CSV back to the repository
+      - name: Commit and push processed CSV
+        run: |
+          # Configure Git user name and email for the commit
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+          # Add the processed CSV file to the staging area
+          git add data/processed_data.csv
+
+          # Check if there are any changes to commit
+          if git diff --staged --quiet; then
+              echo "No changes to commit."
+          else
+              # Commit the changes with a descriptive message
+              git commit -m "chore(data): Update processed stock data [skip ci]"
+              
+              # Push the changes to the 'features/CI-DS' branch
+              # Ensure this branch exists in your repo
+              git push origin features/CI-DS
+          fi
 
       - name: Upload Processed Data and EDA Plots Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: processed-data-and-eda-plots
-          path: data/processed_data.csv # <--- REFRACTORED PATH, only uploading the CSV
+          # MODIFIED: Upload the entire 'data' directory content (which includes 'processed_data.csv' and 'plots/')
+          path: data/ # <--- MODIFIED PATH
           retention-days: 1
 
   # Job 3: Model Training
@@ -98,7 +127,7 @@ jobs:
         with:
           name: processed-data-and-eda-plots
           # Download path now explicitly points to the repository root's data directory
-          path: data/ # <--- CORRECTED PATH
+          path: data/ # <--- CORRECTED PATH (will now correctly place processed_data.csv AND the plots dir)
 
       - name: Set up Python environment
         uses: actions/setup-python@v5
@@ -167,21 +196,3 @@ jobs:
           # Path now explicitly points to the repository root's ml_artifacts directory
           path: ml_artifacts/*.png # <--- CORRECTED PATH
           retention-days: 7
-
-      - name: Upload Final Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: final-report # Name for the final artifact group
-          # Path now explicitly points to the repository root's ml_artifacts directory
-          path: ml_artifacts/final_forecast_data.csv # <--- CORRECTED PATH
-          retention-days: 7
-
-      - name: Commit and Push Final Forecast CSV to feature/CI-DS
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ml_artifacts/final_forecast_data.csv
-          git commit -m "Auto-update: latest forecast CSV" || echo "No changes to commit"
-          git push origin feature/CI-DS
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
