@@ -61,6 +61,8 @@ jobs:
         uses: actions/checkout@v4
         # This action provides the necessary token to push back to the repo
         # The default GITHUB_TOKEN has write permissions for push/schedule events.
+        with:
+          fetch-depth: 0 # Fetches all history for all branches and tags
 
       - name: Download Raw Stock Data Artifact
         uses: actions/download-artifact@v4
