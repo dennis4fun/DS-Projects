@@ -98,12 +98,14 @@ jobs:
           if git diff --staged --quiet; then
               echo "No changes to commit."
           else
+              # Pull the latest changes from the remote branch to prevent merge conflicts
+              git pull origin features/CI-DS
+              
               # Commit the changes with a descriptive message
               git commit -m "chore(data): Update processed stock data [skip ci]"
               
-              # Push the changes to the 'features/CI-DS' branch
-              # Ensure this branch exists in your repo
-              git push origin features/CI-DS
+              # Push the changes to the current branch (HEAD)
+              git push origin HEAD
           fi
 
       - name: Upload Processed Data and EDA Plots Artifacts
