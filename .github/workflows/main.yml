@@ -88,6 +88,8 @@ jobs:
 
       # NEW STEP: Commit and push the processed CSV back to the repository
       - name: Commit and push processed CSV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Configure Git user name and email for the commit
           git config user.name "GitHub Actions Bot"
@@ -100,14 +102,11 @@ jobs:
           if git diff --staged --quiet; then
               echo "No changes to commit."
           else
-              # Pull the latest changes from the remote branch to prevent merge conflicts
-              git pull origin features/CI-DS
-              
               # Commit the changes with a descriptive message
               git commit -m "chore(data): Update processed stock data [skip ci]"
               
-              # Push the changes to the current branch (HEAD)
-              git push origin HEAD
+              # Push the changes to the current branch using GITHUB_TOKEN for authentication
+              git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:features/CI-DS
           fi
 
       - name: Upload Processed Data and EDA Plots Artifacts
